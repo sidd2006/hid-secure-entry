@@ -219,6 +219,7 @@ def _decision_signals(q, p, ident, challenge=None, *, user_id: str, quick=None) 
         "quick_challenge": quick,
         "quick_requires_passive_live": config.QUICK_REQUIRES_PASSIVE_LIVE,
         "passive_allow_enabled": config.PASSIVE_ALLOW_ENABLED,
+        "fallback_challenge_only": config.FALLBACK_CHALLENGE_ONLY,
         "passive_deny_enabled": config.PASSIVE_DENY_ENABLED,
     }
 
@@ -269,7 +270,8 @@ def attempt_start(body: StartBody) -> dict:
     if not identity.USER_ID_RE.match(body.user_id or ""):
         raise HTTPException(400, "invalid user_id")
     at = STORE.create(body.user_id)
-    at.first_action = random.choice(config.QUICK_ACTIONS)
+    if not config.FALLBACK_CHALLENGE_ONLY:
+        at.first_action = random.choice(config.QUICK_ACTIONS)
     return {"attempt_id": at.attempt_id, "server_t0_ms": at.server_t0_ms,
             "deadline_ms": at.deadline_ms, "action": at.first_action}
 
@@ -582,8 +584,8 @@ def status() -> dict:
             "policy_version": pol["version"],
             "kiosk_time": schedule.now().isoformat(timespec="seconds"),
             "demo_clock": schedule.override_active(),
-            "passive_allow": "ENABLED" if config.PASSIVE_ALLOW_ENABLED else PASSIVE_GATE_NOTE,
-            "challenge": "REQUIRED",
+            "passive_allow": "DEMO: LIVE + identity + policy" if config.FALLBACK_CHALLENGE_ONLY else PASSIVE_GATE_NOTE,
+            "challenge": "FALLBACK" if config.FALLBACK_CHALLENGE_ONLY else "REQUIRED",
             "identity_service": ("available" if m == "ONLINE" and identity.service_ok()
                                  else "unavailable"),
             "policy": pol,

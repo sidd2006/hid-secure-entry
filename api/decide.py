@@ -120,6 +120,10 @@ def _first_pass(signals: dict) -> Decision:
     passive = _status(signals.get("passive"))
     quick = _status(signals.get("quick_challenge"))
 
+    if (signals.get("fallback_challenge_only") is True and passive == "LIVE"
+            and _status(ident) == "MATCH" and _quality_ok(q) and _continuity_ok(q)):
+        return ALLOW, "OK_LIVE_MATCH", "NONE"
+
     if (quick == "PASS" and _status(ident) == "MATCH"
             and _quality_ok(q) and _continuity_ok(q)):
         if passive == "SPOOF":  # downgrade: step-up, never DENY

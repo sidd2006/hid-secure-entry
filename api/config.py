@@ -42,6 +42,8 @@ EXPRESSION_ACTIONS = ("SMILE", "OPEN_MOUTH")
 # Passive-only ALLOW is off unless explicitly enabled. Off -> a clean first
 # pass becomes REQUEST_VERIFICATION + CHALLENGE instead of ALLOW.
 PASSIVE_ALLOW_ENABLED = _flag("PASSIVE_ALLOW_ENABLED", False)  # gate: stays off; no effect
+# Opt-in demo profile. The passive-only gate did not meet the calibration target.
+FALLBACK_CHALLENGE_ONLY = _flag("FALLBACK_CHALLENGE_ONLY", False)
 # GATE NO-GO: genuine faces scored below threshold 4/10 times. Off -> passive
 # SPOOF never causes DENY; passive status/score are logged only.
 PASSIVE_DENY_ENABLED = _flag("PASSIVE_DENY_ENABLED", False)

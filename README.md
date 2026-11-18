@@ -29,6 +29,12 @@ a longer pose/expression challenge. Identity runs concurrently against the claim
 user's enrolled reference, not a gallery search. A passed fallback challenge still
 requires identity, quality and access-policy checks. Offline mode requires staff.
 
+For a local demo with challenges only as a fallback, set
+`FALLBACK_CHALLENGE_ONLY=true` in `.env`. First-pass approval then requires a
+LIVE passive result, a timely identity match, good quality, continuous tracking
+and a permitted online schedule. Inconclusive evidence requests the action
+challenge. This mode is opt-in because passive detection missed the calibration bar.
+
 ## Run locally — Python 3.11
 
 ```powershell
