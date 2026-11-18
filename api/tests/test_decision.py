@@ -31,6 +31,7 @@ FRAME = b"\xff\xd8not-really-a-jpeg"
 
 @pytest.fixture
 def client(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "DEMO_CLOCK_ENABLED", True)
     monkeypatch.setattr(config, "ATTEMPT_LOG_PATH", str(tmp_path / "attempts.jsonl"))
     monkeypatch.setattr(config, "ATTEMPT_DEADLINE_MS", 150)
     monkeypatch.setattr(config, "PASSIVE_ALLOW_ENABLED", True)
