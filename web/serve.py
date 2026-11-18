@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 
 WEB_DIR = os.path.dirname(os.path.abspath(__file__))
-PROXY_PREFIXES = ("/attempt/", "/verify")
+PROXY_PREFIXES = ("/attempt/", "/verify", "/enrollment/")
 HOP_HEADERS = {"connection", "keep-alive", "transfer-encoding", "content-length", "host"}
 
 
@@ -27,7 +27,7 @@ def make_handler(api_base: str):
             super().end_headers()
 
         def do_GET(self):
-            if self.path == "/status":
+            if self.path == "/status" or self.path.startswith("/enrollment/"):
                 self._proxy("GET", None)
             else:
                 super().do_GET()

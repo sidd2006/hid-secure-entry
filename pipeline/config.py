@@ -104,6 +104,9 @@ CH_MIN_REACTION_MS = _f("CH_MIN_REACTION_MS", 150)  # onset earlier than this af
 CH_TIMEOUT_MS = _f("CH_TIMEOUT_MS", 5000)
 CH_MIN_HOLD_FRAMES = int(_f("CH_MIN_HOLD_FRAMES", 2))  # consecutive frames above threshold
 CH_MIN_BASELINE_FRAMES = int(_f("CH_MIN_BASELINE_FRAMES", 2))
+# challenge_check thins its input to about this many frames per second before running the
+# landmarker (30 fps input took ~3.7 s to check). 0 = use every frame.
+CH_CHECK_FPS = _f("CH_CHECK_FPS", 10)
 # Frames reaching the pipeline are NOT mirrored (raw camera). Visitor turning to THEIR left
 # moves the nose to image right (+yaw). Set CH_MIRRORED=1 if the browser sends mirrored frames.
 CH_MIRRORED = os.environ.get("CH_MIRRORED", "0") == "1"

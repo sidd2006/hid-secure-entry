@@ -119,6 +119,13 @@ def run(a) -> None:
         "fps": round(len(frames) / dur, 1) if dur else None, "check_ms": r.get("ms"),
         "note": a.note or "",
     }
+    if tr.get("frames"):
+        # how well the face was found; a low share means the action check was never really tested
+        diag = f"faces={tr.get('face_frames')}/{tr['frames']} face_px={tr.get('face_px')}"
+        print("face found in", diag.replace("faces=", "").replace(" face_px=", " checked frames, median face height px "))
+        if tr.get("face_frames", 0) < 0.9 * tr["frames"]:
+            print("** FACE NOT TRACKED in most frames: move the phone closer / cut glare and rerun **")
+        row["note"] = (row["note"] + " " + diag).strip()
     CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
     new = not CSV_PATH.is_file()
     with CSV_PATH.open("a", newline="") as fh:
@@ -155,6 +162,35 @@ def tally() -> None:
         print(f"challenge_check ms: median {med}, min {allms[0]}, max {allms[-1]} (n={len(allms)})")
     ps = Counter((r["label"], r["passive_status"]) for r in rows)
     print("passive (logged only):", dict(sorted(ps.items())))
+
+    # by condition: label x note x actions asked. "act_seen" = every asked action was seen
+    # after the minimum reaction time (the action check alone, before tracking/passive).
+    from . import config as C
+    grp = defaultdict(list)
+    for r in rows:
+        n_act = len(r["actions"].split("+"))
+        note = (r.get("note") or "").split(" faces=")[0].split("faces=")[0].strip()
+        if not note and r["who"].startswith("steady_"):
+            note = "steady"
+        grp[(r["label"], note or "-", f"{n_act}:{r['actions']}" if n_act == 1 else str(n_act))].append(r)
+    print()
+    print(f"{'label':12} {'note':10} {'actions':8} {'n':>3} {'act_seen':>8} {'PASS':>5} {'UNCERT':>6} {'FAIL':>5} "
+          f"{'pasv_SPOOF':>10} {'trk_lost':>8} {'no_base':>7} {'med_ms':>6}")
+    for (lab, note, act), rs in sorted(grp.items()):
+        seen = 0
+        for r in rs:
+            try:
+                on = json.loads(r["onsets_ms"])
+            except Exception:
+                on = [None]
+            seen += bool(on) and all(o is not None and o >= C.CH_MIN_REACTION_MS for o in on)
+        st = Counter(r["status"] for r in rs)
+        m = sorted(int(r["check_ms"]) for r in rs if r["check_ms"])
+        print(f"{lab:12} {note:10} {act:8} {len(rs):>3} {seen:>8} {st['PASS']:>5} {st['UNCERTAIN']:>6} {st['FAIL']:>5} "
+              f"{sum(r['passive_status'] == 'SPOOF' for r in rs):>10} "
+              f"{sum(r['reason'] == 'TRACKING_LOST' for r in rs):>8} "
+              f"{sum(r['reason'] == 'NO_BASELINE' for r in rs):>7} {m[len(m) // 2] if m else '':>6}")
+    print("UNCERTAIN = held for reception (not allowed in), not 'detected as a spoof'.")
 
 
 def main():

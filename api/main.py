@@ -84,6 +84,8 @@ def _warm_face_path() -> None:
 
 
 app = FastAPI(title="HID liveness", lifespan=lifespan)
+from .enrollment import router as enrollment_router
+app.include_router(enrollment_router)
 
 # Local kiosk front-ends (Shesh's /web dev server, any port) may call the API.
 # Only http://localhost:* and http://127.0.0.1:* -- no other origins.

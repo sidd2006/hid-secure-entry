@@ -123,3 +123,7 @@ then 2 random actions on screen, frames captured until `CH_TIMEOUT_MS`, then
 `challenge_check`. One row per attempt is appended to `logs/live_challenge.csv` (gitignored)
 (no images saved). `--tally` prints counts per label x status and challenge ms.
 For spoofs, PASS = the attack got through; FAIL/UNCERTAIN = stopped (never ALLOW).
+`--actions SMILE` forces the action list (1-action quick path); `--note steady` tags the
+condition. `--tally` also prints a table per label x note x action count, where `act_seen`
+counts attempts in which every asked action was seen (the action check alone).
+`challenge_check` thins its input to ~`CH_CHECK_FPS` (10) frames per second by timestamp.
