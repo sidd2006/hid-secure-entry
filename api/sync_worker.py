@@ -94,7 +94,7 @@ async def run_forever(stop: asyncio.Event, uploader: S3Uploader | None = None) -
     while not stop.is_set():
         try:
             m = await asyncio.to_thread(mode.refresh)
-            if m == "ONLINE":
+            if m == "ONLINE" and os.environ.get("S3_SYNC_ENABLED", "").lower() in {'1', 'true'}:
                 res = await asyncio.to_thread(sync_once, outbox.get(), uploader)
                 if res["sent"] or res["failed"]:
                     log.info("sync: sent=%d failed=%d", res["sent"], res["failed"])

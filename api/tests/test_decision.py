@@ -37,6 +37,7 @@ def client(monkeypatch, tmp_path):
     # Pipeline reports a perfect, live face: so the ONLY thing that can
     # stop an ALLOW below is the identity result and its timing.
     monkeypatch.setattr(pipeline, "quality", lambda f: dict(GOOD_Q, per_frame=[]), raising=False)
+    monkeypatch.setattr(pipeline, "select_frames", lambda f, ts: list(range(len(f))), raising=False)
     monkeypatch.setattr(pipeline, "passive_liveness", lambda f: dict(LIVE, per_frame=[]), raising=False)
     monkeypatch.setattr(identity, "compare", lambda uid, fr: {
         "identity": "MATCH", "similarity": 98.0, "ms": 5, "note": "fake"})

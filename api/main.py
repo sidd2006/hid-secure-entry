@@ -12,7 +12,7 @@ import os
 import random
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout, wait
 from contextlib import asynccontextmanager
 
 from pathlib import Path
@@ -20,6 +20,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import config, identity, mode, outbox, schedule, signals, sync_worker
@@ -329,6 +330,7 @@ def attempt_liveness(attempt_id: str, frames: list[UploadFile] = File(...),
     if at.decision is not None:  # first pass is FINAL
         return at.decision
     data = _read_frames(frames)
+    timed_out = False
     try:
         ts = _parse_ts(capture_ts_ms, len(data))
         timing = {"liveness_recv": recv_ms,
@@ -339,12 +341,24 @@ def attempt_liveness(attempt_id: str, frames: list[UploadFile] = File(...),
             # 2 s redesign: quality + the ONE quick action in parallel. The
             # challenge's own passive run is the (log-only) passive signal.
             prompt_ts = _parse_ts([prompt_ts_ms], 1)[0]
-            q, ch, stage = _first_pass_pipeline(data, ts, prompt_ts, at.first_action)
+            future = _EXECUTOR.submit(_first_pass_pipeline, list(data), ts, prompt_ts, at.first_action)
+            try:
+                q, ch, stage = future.result(timeout=max(0, at.deadline_mono-time.monotonic()))
+            except FutureTimeout:
+                timed_out = True
+                future.cancel()
+                q, ch, stage = {}, {"status": "UNAVAILABLE", "reason": "TIMEOUT"}, {}
             p = ch.get("passive") or {"status": "UNAVAILABLE", "score": None}
             quick = {"action": at.first_action, "status": ch.get("status"),
                      "reason": ch.get("reason")}
         else:  # no prompt sent, or offline (offline: staff verify, no challenge)
-            q, p, stage = _quality_and_passive(data, ts)
+            future = _EXECUTOR.submit(_quality_and_passive, list(data), ts)
+            try:
+                q, p, stage = future.result(timeout=max(0, at.deadline_mono-time.monotonic()))
+            except FutureTimeout:
+                timed_out = True
+                future.cancel()
+                q, p, stage = {}, {"status": "UNAVAILABLE", "score": None}, {}
     finally:
         data.clear()  # kiosk keeps nothing
 
@@ -363,6 +377,8 @@ def attempt_liveness(attempt_id: str, frames: list[UploadFile] = File(...),
             stage.update(at.identity_timing)
         sig = _decision_signals(q, p, ident, user_id=at.user_id, quick=quick)
         d = decide(sig)
+        if (timed_out or at.past_deadline()) and d[0] != 'DENY' and d[2] != 'STAFF_VERIFY':
+            d = ("REQUEST_VERIFICATION", "TIMEOUT", "CHALLENGE")
         stage["decide"] = int((time.perf_counter() - t_dec) * 1000)
         first_ms = now_ms() - at.server_t0_ms
         at.scenario, at.passive, at.quality = scenario, p, _quality_view(q)
@@ -683,3 +699,6 @@ def verify(frames: list[UploadFile] = File(...), user_id: str = Form(...)) -> di
         # v3 additive fields (v1 keys above unchanged)
         "schedule": _schedule_view(sig), "mode": sig["mode"], "reason_detail": d[1],
     }
+
+# Mount last so API routes take precedence; only public web assets are exposed.
+app.mount('/', StaticFiles(directory=str(config.REPO_ROOT / 'web'), html=True), name='kiosk')

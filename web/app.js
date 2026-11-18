@@ -18,7 +18,7 @@ const params = new URLSearchParams(location.search);
 const CONFIG = {
   // The one flag. true = local mock (clearly labelled MOCK). false = real backend.
   // URL override: ?mock=0 / ?mock=1
-  USE_MOCK: params.has("mock") ? params.get("mock") !== "0" : true,
+  USE_MOCK: params.get("mock") === "1",
 
   // "" = same origin (use web/serve.py to proxy the API). URL override: ?api=http://host:8000
   API_BASE: params.get("api") || "",
@@ -469,6 +469,7 @@ async function beginAttempt(userId) {
   els.userId.disabled = true;
   els.verifyBtn.disabled = true;
 
+  let deadlineTimer;
   try {
     // v4: recording starts at the tap, BEFORE the prompt, at 10 fps. /attempt/start runs concurrently
     // and returns the quick action; it is shown once >= BASELINE_FRAMES frames exist (baseline).
@@ -490,6 +491,11 @@ async function beginAttempt(userId) {
     guard(flow);
     state.t0 = first.perf;          // timing starts at the first captured frame
     startStopwatch();
+    deadlineTimer = setTimeout(() => {
+      if (flow !== state.flow) return;
+      const timeoutFlow = ++state.flow;
+      renderResult(timeoutDecision(state.attemptId), timeoutFlow, "first").catch(() => {});
+    }, Math.max(0, state.t0 + CONFIG.FIRST_PASS_DEADLINE_MS - performance.now()));
     setProgress("Verifying");
 
     const start = await startP;
@@ -534,6 +540,7 @@ async function beginAttempt(userId) {
     frames = null;
     const deadline = sleepUntil(state.t0 + CONFIG.FIRST_PASS_DEADLINE_MS).then(() => DEADLINE);
     const winner = await Promise.race([livenessP, deadline]);
+    clearTimeout(deadlineTimer);
     guard(flow);
 
     if (winner === DEADLINE) {
@@ -546,6 +553,8 @@ async function beginAttempt(userId) {
     if (err instanceof Cancelled) return;
     log("attempt failed", err);
     if (flow === state.flow) await renderFailure(flow, err);
+  } finally {
+    clearTimeout(deadlineTimer);
   }
 }
 
